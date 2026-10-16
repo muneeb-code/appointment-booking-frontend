@@ -6,8 +6,10 @@ import BookingList from "@/components/BookingList";
 import RescheduleModal from "@/components/RescheduleModal";
 import ManageEntitiesForm from "@/components/ManageEntitiesForm";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+// Trim trailing slash to prevent double-slash API endpoint issues
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000"
+).replace(/\/$/, "");
 
 export default function Home() {
   const [bookings, setBookings] = useState([]);
@@ -34,7 +36,14 @@ export default function Home() {
       const res = await fetch(`${API_BASE}/bookings`);
       if (!res.ok) return;
       const result = await res.json();
-      const rawList = result.data || result || [];
+
+      // Extract array from response payload
+      const rawList = Array.isArray(result.data)
+        ? result.data
+        : Array.isArray(result)
+          ? result
+          : [];
+
       const sortedList = [...rawList].sort(
         (a, b) => Number(a.id) - Number(b.id),
       );
@@ -49,7 +58,13 @@ export default function Home() {
       const res = await fetch(`${API_BASE}/consultants`);
       if (!res.ok) return;
       const result = await res.json();
-      setConsultants(result.data || result || []);
+
+      const list = Array.isArray(result.data)
+        ? result.data
+        : Array.isArray(result)
+          ? result
+          : [];
+      setConsultants(list);
     } catch (err) {
       console.error("Fetch consultants error:", err);
     }
@@ -60,7 +75,13 @@ export default function Home() {
       const res = await fetch(`${API_BASE}/customers`);
       if (!res.ok) return;
       const result = await res.json();
-      setCustomers(result.data || result || []);
+
+      const list = Array.isArray(result.data)
+        ? result.data
+        : Array.isArray(result)
+          ? result
+          : [];
+      setCustomers(list);
     } catch (err) {
       console.error("Fetch customers error:", err);
     }
