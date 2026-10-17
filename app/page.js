@@ -6,10 +6,17 @@ import BookingList from "@/components/BookingList";
 import RescheduleModal from "@/components/RescheduleModal";
 import ManageEntitiesForm from "@/components/ManageEntitiesForm";
 
-// Trim trailing slash to prevent double-slash API endpoint issues
-const API_BASE = (
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000"
-).replace(/\/$/, "");
+// Force HTTPS and strip trailing slashes to prevent 302 redirects
+const getCleanApiUrl = () => {
+  let url = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+  url = url.trim().replace(/\/+$/, "");
+  if (url.startsWith("http://") && !url.includes("localhost")) {
+    url = url.replace("http://", "https://");
+  }
+  return url;
+};
+
+const API_BASE = getCleanApiUrl();
 
 export default function Home() {
   const [bookings, setBookings] = useState([]);
@@ -20,7 +27,6 @@ export default function Home() {
   const [successMsg, setSuccessMsg] = useState("");
   const [selectedBooking, setSelectedBooking] = useState(null);
 
-  // Auto-dismiss toast notifications after 4 seconds
   useEffect(() => {
     if (successMsg || errorMsg) {
       const timer = setTimeout(() => {
@@ -33,17 +39,14 @@ export default function Home() {
 
   const fetchBookings = async () => {
     try {
-      const res = await fetch(`${API_BASE}/bookings`);
+      const res = await fetch(`${API_BASE}/bookings`, { redirect: "follow" });
       if (!res.ok) return;
       const result = await res.json();
-
-      // Extract array from response payload
       const rawList = Array.isArray(result.data)
         ? result.data
         : Array.isArray(result)
           ? result
           : [];
-
       const sortedList = [...rawList].sort(
         (a, b) => Number(a.id) - Number(b.id),
       );
@@ -55,10 +58,11 @@ export default function Home() {
 
   const fetchConsultants = async () => {
     try {
-      const res = await fetch(`${API_BASE}/consultants`);
+      const res = await fetch(`${API_BASE}/consultants`, {
+        redirect: "follow",
+      });
       if (!res.ok) return;
       const result = await res.json();
-
       const list = Array.isArray(result.data)
         ? result.data
         : Array.isArray(result)
@@ -72,10 +76,9 @@ export default function Home() {
 
   const fetchCustomers = async () => {
     try {
-      const res = await fetch(`${API_BASE}/customers`);
+      const res = await fetch(`${API_BASE}/customers`, { redirect: "follow" });
       if (!res.ok) return;
       const result = await res.json();
-
       const list = Array.isArray(result.data)
         ? result.data
         : Array.isArray(result)
@@ -87,10 +90,9 @@ export default function Home() {
     }
   };
 
-  const refreshAllData = () => {
-    fetchBookings();
-    fetchConsultants();
-    fetchCustomers();
+  const refreshAllData = async () => {
+    await Promise.all([fetchConsultants(), fetchCustomers()]);
+    await fetchBookings();
   };
 
   useEffect(() => {
@@ -105,6 +107,7 @@ export default function Home() {
     try {
       const res = await fetch(`${API_BASE}/bookings/${id}`, {
         method: "DELETE",
+        redirect: "follow",
       });
       const result = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -121,7 +124,6 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-100/70 py-10 px-4 sm:px-6 lg:px-8 font-sans antialiased relative">
       <div className="max-w-5xl mx-auto space-y-8 pb-12">
-        {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
             Appointment Booking Dashboard
@@ -131,14 +133,12 @@ export default function Home() {
           </p>
         </div>
 
-        {/* 1. Manage Consultants & Customers */}
         <ManageEntitiesForm
           onEntityAdded={refreshAllData}
           setErrorMsg={setErrorMsg}
           setSuccessMsg={setSuccessMsg}
         />
 
-        {/* 2. Create Booking Form */}
         <BookingForm
           consultants={consultants}
           customers={customers}
@@ -147,7 +147,6 @@ export default function Home() {
           setSuccessMsg={setSuccessMsg}
         />
 
-        {/* 3. Appointments List */}
         <BookingList
           bookings={bookings}
           consultants={consultants}
@@ -156,7 +155,6 @@ export default function Home() {
           onRescheduleClick={(booking) => setSelectedBooking(booking)}
         />
 
-        {/* Reschedule Modal */}
         {selectedBooking && (
           <RescheduleModal
             booking={selectedBooking}
@@ -168,7 +166,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* Floating Bottom Right Toast Container */}
       <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none">
         {errorMsg && (
           <div className="pointer-events-auto p-4 bg-rose-900 text-white border border-rose-700 rounded-xl shadow-2xl text-sm font-medium flex items-center justify-between gap-3 animate-bounce">
